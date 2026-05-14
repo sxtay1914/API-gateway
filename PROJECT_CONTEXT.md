@@ -42,3 +42,4 @@ A production-ready API Gateway built as a portfolio project for backend engineer
 - Learning Neovim through this project
 - Learning Linux through this project
 - Fairly new to Spring Boot — learning by building
+- Learn to use Cloud also

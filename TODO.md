@@ -2,11 +2,11 @@
 
 ## WebClient Configuration (in progress)
 
-- [ ] Configure connection timeout via `HttpClient`
-- [ ] Configure read timeout via `HttpClient`
-- [ ] Configure response timeout via `HttpClient`
+- [x] Configure connection timeout via `HttpClient`
+- [x] Configure read timeout via `HttpClient`
+- [x] Configure response timeout via `HttpClient`
 - [ ] Configure connection pool (max connections, pending acquire queue)
-- [ ] Wire `HttpClient` into `WebClient` builder
+- [x] Wire `HttpClient` into `WebClient` builder
 
 ## Up Next
 

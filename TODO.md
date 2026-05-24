@@ -13,8 +13,14 @@
 - [x] Configure R2DBC connection on application.yaml, need to add dependencies also
 - [x] Create entity class
 - [x] Create repo interface
-- [] Create routing service
-- [] Create handler to intercept requests and forward via WebClient
+- [x] Create routing service
+- [x] Create RouteConfig (RouterFunction with RequestPredicates.all())
+- [] Create RouteHandler to intercept requests and forward via WebClient
+
+## Pre-session Prep
+- [x] Read WebClient docs — trace get() → uri() → retrieve() → bodyToMono()
+- [x] Understand Mono vs Flux and what subscribing means
+- [x] Sketch the handler flow on paper before coding
 
 ## Up Next
 

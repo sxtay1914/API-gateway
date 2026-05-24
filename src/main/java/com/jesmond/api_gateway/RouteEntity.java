@@ -1,8 +1,5 @@
 package com.jesmond.api_gateway;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Table;
 import lombok.Getter;

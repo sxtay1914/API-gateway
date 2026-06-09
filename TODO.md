@@ -15,12 +15,16 @@
 - [x] Create repo interface
 - [x] Create routing service
 - [x] Create RouteConfig (RouterFunction with RequestPredicates.all())
-- [] Create RouteHandler to intercept requests and forward via WebClient
+- [x] Create RouteHandler to intercept requests and forward via WebClient
+- [ ] Fix RouteConfig predicate — `contentType(APPLICATION_JSON)` blocks non-JSON requests; gateway should forward all content types
 
 ## Pre-session Prep
 - [x] Read WebClient docs — trace get() → uri() → retrieve() → bodyToMono()
 - [x] Understand Mono vs Flux and what subscribing means
 - [x] Sketch the handler flow on paper before coding
+
+## Neovim Setup
+- [ ] Set up jdtls (Eclipse JDT Language Server) via nvim-lspconfig for Java auto-import and completion
 
 ## Up Next
 

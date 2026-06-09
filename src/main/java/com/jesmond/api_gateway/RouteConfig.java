@@ -5,15 +5,16 @@ import org.springframework.web.reactive.function.server.RouterFunctions;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.http.MediaType;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RouteConfig{
   @Bean
   public RouterFunction<ServerResponse> reqRoutes(RouteHandler routeHandler){
     return RouterFunctions.route(
-      RequestPredicates.all().
-        and(RequestPredicates.contentType(MediaType.APPLICATION_JSON)),
-      routeHandler::forwardToDest
-      );
+      // route all methods
+      RequestPredicates.all(),
+      routeHandler::forwardToDest);
   }
 }  

@@ -1,5 +1,11 @@
 package com.jesmond.api_gateway;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import org.springframework.http.HttpMethod;
+
 @Service
 public class RoutingService{
   // Define repo
@@ -10,7 +16,7 @@ public class RoutingService{
   }
 
   public Mono<String> findDest(String path, HttpMethod method){
-    RouteId id =  new RouteID(path, method);
+    RouteId id =  new RouteId(path, method);
     return routeRepository.findById(id).
       switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination Not Found"))).
       map(routeEntity -> {return routeEntity.dest;});

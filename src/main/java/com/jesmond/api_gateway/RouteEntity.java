@@ -12,6 +12,6 @@ import lombok.Setter;
 public class RouteEntity {
   @Id 
   private RouteId id; 
-  public String dest;
+  private String dest;
 }
 

@@ -16,9 +16,9 @@ public class RoutingService{
   }
 
   public Mono<String> findDest(String path, HttpMethod method){
-    RouteId id =  new RouteId(path, method);
+    RouteId id =  new RouteId(path, method.name());
     return routeRepository.findById(id).
       switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination Not Found"))).
-      map(routeEntity -> {return routeEntity.dest;});
+      map(RouteEntity::getDest);
   }
 }

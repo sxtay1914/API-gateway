@@ -28,7 +28,7 @@ public class RouteHandler{
       retrieve(). 
       onStatus(HttpStatusCode::isError, response -> 
           response.bodyToMono(String.class).
-          flatMap(errorBody -> Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "BAD_GATEWAY " + errorBody)))).
+          flatMap(errorBody -> Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY " + errorBody)))).
       bodyToMono(byte[].class).
       flatMap(bytes -> ServerResponse.ok().bodyValue(bytes)));
   }  

@@ -20,7 +20,7 @@
 - [x] `RouteEntity.dest` should be `private`, not `public` — `@Getter` already handles access
 - [x] `ResponseStatusException` in `RouteHandler.onStatus` uses `NOT_FOUND` but should be `BAD_GATEWAY`
 
-- [] Debug BAD_GATEWAY error using curl
+- [x] Debug BAD_GATEWAY error using curl
 
 ## Pre-session Prep
 - [x] Read WebClient docs — trace get() → uri() → retrieve() → bodyToMono()
@@ -28,12 +28,18 @@
 - [x] Sketch the handler flow on paper before coding
 
 ## Neovim Setup
-- [ ] Set up jdtls (Eclipse JDT Language Server) via nvim-lspconfig for Java auto-import and completion
+- [x] Set up jdtls (Eclipse JDT Language Server) via nvim-lspconfig for Java auto-import and completion
+
+## JWT Authentication Filter
+- [ ] Add `jjwt` dependency (parse/validate JWT)
+- [ ] Obtain public key for signature verification
+- [ ] Implement `WebFilter` — extract `Authorization: Bearer <token>` header
+- [ ] Reject with 401 if header missing or malformed
+- [ ] Verify signature using public key — reject with 401 if invalid
+- [ ] Forward request to `RouteHandler` if valid
 
 ## Up Next
 
-- [ ] Dynamic routing from PostgreSQL
-- [ ] JWT authentication filter
 - [ ] Redis-based rate limiting
 - [ ] Circuit breaking with Resilience4j
 - [ ] Observability: Kafka, Prometheus, Grafana

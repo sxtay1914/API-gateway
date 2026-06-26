@@ -28,6 +28,7 @@ public class JwtFilter implements WebFilter {
      *
      */
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+      // System.out.println("Check Executed")
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       return exchange.getResponse().setComplete();
     }

@@ -7,18 +7,17 @@ import reactor.core.publisher.Mono;
 import org.springframework.http.HttpMethod;
 
 @Service
-public class RoutingService{
+public class RoutingService {
   // Define repo
   private final RouteRepository routeRepository;
 
-  public RoutingService(RouteRepository routeRepository){
+  public RoutingService(RouteRepository routeRepository) {
     this.routeRepository = routeRepository;
   }
 
-  public Mono<String> findDest(String path, HttpMethod method){
-    RouteId id =  new RouteId(path, method.name());
-    return routeRepository.findById(id).
-      switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination Not Found"))).
-      map(RouteEntity::getDest);
+  public Mono<RouteEntity> query(String path, HttpMethod method) {
+    RouteId id = new RouteId(path, method.name());
+    return routeRepository.findById(id)
+        .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Destination Not Found")));
   }
 }

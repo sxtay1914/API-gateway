@@ -20,9 +20,9 @@ public class RouteHandler {
   }
 
   public Mono<ServerResponse> forwardToDest(ServerRequest request) {
-    Mono<String> dest = routingService.findDest(request.path(), request.method());
+    Mono<RouteEntity> dest = routingService.query(request.path(), request.method());
     // using flatMap to get String value out of Mono
-    return dest.flatMap(destURL -> webClient.method(request.method()).uri(destURL + request.path()).retrieve()
+    return dest.flatMap(entity -> webClient.method(request.method()).uri(entity.getDest() + request.path()).retrieve()
         .onStatus(HttpStatusCode::isError, response -> response.bodyToMono(String.class).flatMap(
             errorBody -> Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY " + errorBody))))
         .bodyToMono(byte[].class).flatMap(bytes -> ServerResponse.ok().bodyValue(bytes)));

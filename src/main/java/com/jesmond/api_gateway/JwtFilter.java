@@ -28,7 +28,7 @@ public class JwtFilter implements WebFilter {
      *
      */
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-      // System.out.println("Check Executed")
+      System.out.println("Check Executed");
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       return exchange.getResponse().setComplete();
     }
@@ -37,8 +37,10 @@ public class JwtFilter implements WebFilter {
 
     try {
       jwtService.verifyToken(token);
+      System.out.println("Filter Reached");
       return chain.filter(exchange);
     } catch (Exception e) {
+      System.out.println(e.getMessage());
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       return exchange.getResponse().setComplete();
     }

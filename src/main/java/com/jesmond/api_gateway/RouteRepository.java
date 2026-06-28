@@ -7,4 +7,5 @@ public interface RouteRepository extends ReactiveCrudRepository<RouteEntity, Rou
   // can remove entirely because ReactiveCrudRepository provides findById by
   // default
   // Mono<RouteEntity> findById(String path, HttpMethod method);
+
 }

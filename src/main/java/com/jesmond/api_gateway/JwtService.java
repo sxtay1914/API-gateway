@@ -52,6 +52,7 @@ public class JwtService {
       jwtProcessor.process(token, null);
 
     } catch (Exception e) {
+      System.out.println(e.getMessage());
       throw new RuntimeException(e);
     }
 

@@ -11,20 +11,18 @@ import org.springframework.http.HttpStatus;
 
 @Component
 public class RouteHandler {
-  private RoutingService routingService;
   private WebClient webClient;
 
-  public RouteHandler(RoutingService routingService, WebClient webClient) {
-    this.routingService = routingService;
+  public RouteHandler(WebClient webClient) {
     this.webClient = webClient;
   }
 
   public Mono<ServerResponse> forwardToDest(ServerRequest request) {
-    Mono<RouteEntity> dest = routingService.query(request.path(), request.method());
+    RouteEntity routeEntity = request.exchange().getAttribute("routeEntity");
     // using flatMap to get String value out of Mono
-    return dest.flatMap(entity -> webClient.method(request.method()).uri(entity.getDest() + request.path()).retrieve()
+    return webClient.method(request.method()).uri(routeEntity.getDest() + request.path()).retrieve()
         .onStatus(HttpStatusCode::isError, response -> response.bodyToMono(String.class).flatMap(
             errorBody -> Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY " + errorBody))))
-        .bodyToMono(byte[].class).flatMap(bytes -> ServerResponse.ok().bodyValue(bytes)));
+        .bodyToMono(byte[].class).flatMap(bytes -> ServerResponse.ok().bodyValue(bytes));
   }
 }

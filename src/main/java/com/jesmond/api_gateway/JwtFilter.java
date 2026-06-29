@@ -1,5 +1,8 @@
 package com.jesmond.api_gateway;
 
+import java.text.ParseException;
+
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 
 import org.springframework.http.HttpStatus;
@@ -8,8 +11,12 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+
 import reactor.core.publisher.Mono;
 
+@Order(1)
 @Component
 public class JwtFilter implements WebFilter {
 
@@ -36,11 +43,22 @@ public class JwtFilter implements WebFilter {
     String token = authHeader.substring(7);
 
     try {
+      // Get claims from token
+      SignedJWT jwt = SignedJWT.parse(token);
+      // Get claimset
+      JWTClaimsSet claims = jwt.getJWTClaimsSet();
+      // Pass into exchange attributes
+      exchange.getAttributes().put("clientID", claims.getSubject());
+    } catch (ParseException e) {
+      System.err.println("JWT parse error " + e);
+    }
+
+    try {
       jwtService.verifyToken(token);
       System.out.println("Filter Reached");
       return chain.filter(exchange);
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      System.err.println(e.getMessage());
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       return exchange.getResponse().setComplete();
     }

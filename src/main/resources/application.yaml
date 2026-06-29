@@ -3,4 +3,18 @@ spring:
     url: r2dbc:pool:postgresql://localhost:5432/routes
     username: postgres
     password: password
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 20 
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+
 

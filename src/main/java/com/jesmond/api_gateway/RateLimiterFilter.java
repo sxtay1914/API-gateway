@@ -30,15 +30,10 @@ public class RateLimiterFilter implements WebFilter {
     int segmentSize = 1000;
     int windowSize = 6000;
     return queryResponse.flatMap(entity -> {
-      try {
-        exchange.getAttributes().put("routeEntity", entity);
-        rateLimiterService.allowRequest(segmentSize, windowSize, entity.getLimit(), clientId, routeKey);
-        return chain.filter(exchange);
-      } catch (Exception e) {
-        System.out.print("Rate Limit filter");
-        exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
-        return exchange.getResponse().setComplete();
-      }
+      exchange.getAttributes().put("routeEntity", entity);
+      System.out.println("Allow Request Called");
+      return rateLimiterService.allowRequest(segmentSize, windowSize, entity.getLimit(), clientId, routeKey)
+          .then(chain.filter(exchange));
     });
   }
 }

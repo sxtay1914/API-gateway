@@ -1,10 +1,10 @@
 package com.jesmond.api_gateway;
 
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -17,34 +17,34 @@ import org.springframework.core.io.Resource;
 
 @Configuration
 public class RedisConfig {
+  @Primary
   @Bean
-  public ReactiveRedisTemplate<String, Integer> reactiveRedisTemplate(
+  public ReactiveRedisTemplate<String, String> reactiveRedisTemplate(
       ReactiveRedisConnectionFactory connectionFactory) {
     StringRedisSerializer serializer = new StringRedisSerializer();
 
-    ReactiveRedisTemplate<String, Integer> redisTemplate;
-    RedisSerializationContext<String, Integer> context = RedisSerializationContext
-        .<String, Integer>newSerializationContext(serializer).build();
+    ReactiveRedisTemplate<String, String> redisTemplate;
+    RedisSerializationContext<String, String> context = RedisSerializationContext
+        .<String, String>newSerializationContext(serializer).build();
 
     redisTemplate = new ReactiveRedisTemplate<>(connectionFactory, context);
     return redisTemplate;
   }
 
   @Bean
-  public RedisScript<Integer> checkAndSetScript() {
+  public RedisScript<Long> redisScript() {
     System.out.println("Script Executed");
-    DefaultRedisScript<Integer> script = new DefaultRedisScript<>();
+    DefaultRedisScript<Long> script = new DefaultRedisScript<>();
     script.setLocation(new ClassPathResource("Redis/script.lua"));
     Resource resource = new ClassPathResource("Redis/script.lua");
     try {
       String content = resource.getContentAsString(StandardCharsets.UTF_8);
 
-      // Read content as an InputStream (Great for large files)
       System.out.println(content);
     } catch (Exception e) {
       System.out.println(e);
     }
-    script.setResultType(Integer.class);
-    return script;
+    script.setResultType(Long.class);
+    return RedisScript.of(resource, Long.class);
   }
 }

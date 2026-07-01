@@ -6,7 +6,7 @@ local limit = tonumber(ARGV[4])
 local sm = 0
 
 for i = 1, #map, 2 do
-	seg = tonumber(map[i])
+	local seg = tonumber(map[i])
 	if seg < currSeg - (windowSize / segmentSize) then
 		redis.call("HDEL", KEYS[1], seg)
 	else
@@ -16,7 +16,7 @@ end
 
 if sm < limit then
 	redis.call("HINCRBY", KEYS[1], currSeg, 1)
-	return true
+	return 1
 end
 
-return false
+return 0

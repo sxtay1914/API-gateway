@@ -28,6 +28,9 @@ public class JwtFilter implements WebFilter {
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+    if (exchange.getRequest().getPath().value().startsWith("/actuator")) {
+      return chain.filter(exchange);
+    }
     String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
     /*

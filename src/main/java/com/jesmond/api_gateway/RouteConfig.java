@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 public class RouteConfig {
   @Bean
   public RouterFunction<ServerResponse> reqRoutes(RouteHandler routeHandler) {
+
     return RouterFunctions.route(
         // route all methods
         RequestPredicates.all(),

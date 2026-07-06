@@ -1,0 +1,34 @@
+services:
+  api-gateway-db:
+    container_name: api-gateway
+    image: postgres:16
+    restart: always
+    environment: 
+      POSTGRES_USER: postgres 
+      POSTGRES_PASSWORD: password 
+      POSTGRES_DB: routes
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+  
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+
+volumes:
+  pgdata:

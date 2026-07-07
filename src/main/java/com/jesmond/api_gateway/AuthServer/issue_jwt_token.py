@@ -18,7 +18,7 @@ def issue_jwt_token() -> dict:
     payload = {
         "sub": "test_client_id",
         "iat": int(time.time()),
-        "exp": int(time.time()) + 3600,  # Token expires in 1 hour
+        # "exp": int(time.time()) + 3600,  # Token expires in 1 hour
     }
     # Create a JWT token using the payload and sign it with the private key
     token = jwt.encode(payload, 
@@ -27,4 +27,4 @@ def issue_jwt_token() -> dict:
         headers={"kid": "my-key-id"}
     )
 
-    return {"token": token, "token_type": "Bearer", "expires_in": 3600}
+    return {"token": token, "token_type": "Bearer"}

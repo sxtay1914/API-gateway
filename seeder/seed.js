@@ -11,10 +11,10 @@ async function seed() {
 
   await pg.query(`
         CREATE TABLE IF NOT EXISTS routes (
-            id SERIAL PRIMARY KEY,
-            dest VARCHAR(255) NOT NULL,
-            limit INTEGER NOT NULL,
-            PRIMARY KEY (id, dest)
+            path VARCHAR(255) NOT NULL,
+            method VARCHAR(255) NOT NULL,
+            rate_limit INTEGER NOT NULL,
+            PRIMARY KEY (path, method)
         )
   `);
 

@@ -9,10 +9,19 @@ async function seed() {
     password: process.env.DB_PASSWORD,
   });
 
+  await pg.query(`
+        CREATE TABLE IF NOT EXISTS routes (
+            id SERIAL PRIMARY KEY,
+            dest VARCHAR(255) NOT NULL,
+            limit INTEGER NOT NULL,
+            PRIMARY KEY (id, dest)
+        )
+  `);
+
   // seed postgres
   await pg.query(
     `INSERT INTO routes VALUES($1, $2, $3)`,
-    ['/test-nginx-server', process.env.DOWNSTREAM_URL, '99999']
+    ['/test-nginx-server', process.env.DOWNSTREAM_URL, 99999]
   );
 
   await pg.end();

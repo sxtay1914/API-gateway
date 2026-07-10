@@ -1,0 +1,26 @@
+name: Performance Test
+on: 
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Run k6 smoke test
+        uses: grafana/k6-action@v0.2.0with
+        with: 
+          filename: tests/k6-runner.js
+        env:
+          AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+          
+      - name: Upload performance report
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: performance-report
+          path: performance-report.html

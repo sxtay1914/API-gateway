@@ -33,7 +33,7 @@ jobs:
 
       - name: Run k6 tests
         run: |
-          k6 run ./k6/script.js \
+          k6 run ./tests/k6-runner.js \
             --env BASE_URL=http://localhost:8080 \
             --env TOKEN=${{ secrets.AUTH_TOKEN }}
 

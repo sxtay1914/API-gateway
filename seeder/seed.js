@@ -21,7 +21,7 @@ async function seed() {
 
   // seed postgres
   await pg.query(
-    `INSERT INTO routes VALUES($1, $2, $3, $4)`,
+    `INSERT INTO routes VALUES($1, $2, $3, $4) ON CONFLICT (path, method) DO NOTHING`,
     ['/test-nginx-server', 'GET', process.env.DOWNSTREAM_URL, 99999]
   );
 

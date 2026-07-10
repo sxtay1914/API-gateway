@@ -15,15 +15,16 @@ export let options = {
 };
 
 export default function () {
-  const url = ENVIRONMENT_URL + '/test';
+  const url = ENVIRONMENT_URL + '/test-nginx-server';
 
-  const headers = {
-    'Authorization': `Bearer ${AUTH_TOKEN}`,
-    'Content-Type': 'application/json',
-  };
+  const params = {
+    headers: {
+      'Authorization': `Bearer ${AUTH_TOKEN}`,
+      'Accept': 'application/json',
+    }
+  }
 
-  const response = http.get(url, headers);
-
+  const response = http.get(url, params);
 
   const checks = {
     [`Test Endpoint - Status is ${response.status}`]:

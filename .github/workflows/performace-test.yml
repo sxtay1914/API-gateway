@@ -1,26 +1,55 @@
-name: Performance Test
-on: 
-  pull_request:
-    branches: [main]
+name: k6 Load Test
+
+on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  performance:
+  load-test:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
 
-      - name: Run k6 smoke test
-        uses: grafana/k6-action@v0.2.0with
-        with: 
-          filename: tests/k6-runner.js
-        env:
-          AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
-          
-      - name: Upload performance report
-        uses: actions/upload-artifact@v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build & start services
+        run: docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for api-gateway to be healthy
+        run: |
+          for i in $(seq 1 24); do
+            curl -sf http://localhost:8080/actuator/health && break
+            echo "Waiting... ($i/24)"
+            sleep 5
+          done
+
+      - name: Run seeder
+        run: docker compose -f docker-compose.test.yml run --rm seeder
+
+      - name: Install k6
+        run: |
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update && sudo apt-get install k6 -y
+
+      - name: Run k6 tests
+        run: |
+          k6 run ./k6/script.js \
+            --env BASE_URL=http://localhost:8080 \
+            --env TOKEN=${{ secrets.AUTH_TOKEN }}
+
+      - name: Upload k6 results
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: performance-report
-          path: performance-report.html
+          name: k6-results
+          path: k6/results/
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v

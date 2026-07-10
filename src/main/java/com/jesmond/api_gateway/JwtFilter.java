@@ -1,6 +1,7 @@
 package com.jesmond.api_gateway;
 
 import java.text.ParseException;
+import java.util.Set;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -21,9 +22,11 @@ import reactor.core.publisher.Mono;
 public class JwtFilter implements WebFilter {
 
   private final JwtService jwtService;
+  private final Set<String> noAuthPaths;
 
   public JwtFilter(JwtService jwtService) {
     this.jwtService = jwtService;
+    this.noAuthPaths = Set.of("/test");
   }
 
   @Override
@@ -42,7 +45,6 @@ public class JwtFilter implements WebFilter {
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
       return exchange.getResponse().setComplete();
     }
-
     String token = authHeader.substring(7);
 
     try {
@@ -54,6 +56,12 @@ public class JwtFilter implements WebFilter {
       exchange.getAttributes().put("clientID", claims.getSubject());
     } catch (ParseException e) {
       System.err.println("JWT parse error " + e);
+    }
+
+    for (String path : noAuthPaths) {
+      if (exchange.getRequest().getPath().value().startsWith(path)) {
+        return chain.filter(exchange);
+      }
     }
 
     try {

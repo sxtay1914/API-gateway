@@ -13,6 +13,7 @@ async function seed() {
         CREATE TABLE IF NOT EXISTS routes (
             path VARCHAR(255) NOT NULL,
             method VARCHAR(255) NOT NULL,
+            dest VARCHAR(255) NOT NULL,
             rate_limit INTEGER NOT NULL,
             PRIMARY KEY (path, method)
         )
@@ -20,8 +21,8 @@ async function seed() {
 
   // seed postgres
   await pg.query(
-    `INSERT INTO routes VALUES($1, $2, $3)`,
-    ['/test-nginx-server', process.env.DOWNSTREAM_URL, 99999]
+    `INSERT INTO routes VALUES($1, $2, $3, $4)`,
+    ['/test-nginx-server', 'GET', process.env.DOWNSTREAM_URL, 99999]
   );
 
   await pg.end();

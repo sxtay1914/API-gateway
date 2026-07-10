@@ -1,5 +1,6 @@
 package com.jesmond.api_gateway;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -14,6 +15,9 @@ public class RateLimiterFilter implements WebFilter {
   private RateLimiterService rateLimiterService;
   private RoutingService routingService;
 
+  @Value("${gateway_url}")
+  private String gatewayURL;
+
   public RateLimiterFilter(RateLimiterService rateLimiterService, RoutingService routingService) {
     this.rateLimiterService = rateLimiterService;
     this.routingService = routingService;
@@ -21,7 +25,13 @@ public class RateLimiterFilter implements WebFilter {
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-    Mono<RouteEntity> queryResponse = routingService.query(exchange.getRequest().getURI().getPath(),
+    String destinationURI = exchange.getRequest().getURI().getPath();
+
+    if (exchange.getRequest().getURI().getPath().contains("/actuator")) {
+      exchange.getAttributes().put("routeEntity", gatewayURL);
+      return chain.filter(exchange);
+    }
+    Mono<RouteEntity> queryResponse = routingService.query(destinationURI,
         exchange.getRequest().getMethod());
 
     String clientId = exchange.getAttribute("clientID");

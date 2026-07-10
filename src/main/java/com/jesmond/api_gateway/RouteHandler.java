@@ -7,6 +7,7 @@ import reactor.core.publisher.Mono;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 
 @Component
@@ -18,9 +19,9 @@ public class RouteHandler {
   }
 
   public Mono<ServerResponse> forwardToDest(ServerRequest request) {
-    RouteEntity routeEntity = request.exchange().getAttribute("routeEntity");
+    String downstreamServerURL = request.exchange().getAttribute("routeEntity") + request.path();
     // using flatMap to get String value out of Mono
-    return webClient.method(request.method()).uri(routeEntity.getDest() + request.path()).retrieve()
+    return webClient.method(request.method()).uri(downstreamServerURL).retrieve()
         .onStatus(HttpStatusCode::isError, response -> response.bodyToMono(String.class).flatMap(
             errorBody -> Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "BAD_GATEWAY " + errorBody))))
         .bodyToMono(byte[].class).flatMap(bytes -> ServerResponse.ok().bodyValue(bytes));

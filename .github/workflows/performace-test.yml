@@ -44,10 +44,12 @@ jobs:
           name: k6-results
           path: k6/results/
 
+      - name: Print all logs
+        if: always()
+        run: docker compose -f docker-compose.test.yml logs
+
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose.test.yml down -v
 
-      - name: Print all logs
-        if: always()
-        run: docker compose -f docker-compose.test.yml logs
+      

@@ -18,7 +18,7 @@ async function seed() {
             PRIMARY KEY (path, method)
         )
   `);
-
+  console.log("Downstream url", process.env.DOWNSTREAM_URL);
   // seed postgres
   await pg.query(
     `INSERT INTO routes VALUES($1, $2, $3, $4) ON CONFLICT (path, method) DO NOTHING`,

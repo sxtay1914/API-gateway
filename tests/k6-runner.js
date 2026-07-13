@@ -17,6 +17,7 @@ export let options = {
 export default function () {
   const url = ENVIRONMENT_URL + '/test-nginx-server';
 
+  console.log("URL ", url)
   const params = {
     headers: {
       'Authorization': `Bearer ${AUTH_TOKEN}`,

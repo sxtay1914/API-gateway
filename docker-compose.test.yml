@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: routes
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d routes"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       retries: 10
 
@@ -28,9 +28,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mock-downstream:
+        condition: service_healthy
+      seeder:
+        condition: service_completed_successfully
     environment:
       SPRING_R2DBC_URL: r2dbc:postgresql://api-gateway-db:5432/routes
-      SPRING_DATA_REDIS_HOST: redis        # overrides your localhost default
+      SPRING_DATA_REDIS_HOST: redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 10s
@@ -54,6 +58,10 @@ services:
     image: nginx:alpine
     ports:
       - "8081:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 5s
+      retries: 5
 
   seeder:
     environment:
@@ -66,5 +74,5 @@ services:
     build:
       context: ./seeder
     depends_on:
-      api-gateway:
+      api-gateway-db:
         condition: service_healthy

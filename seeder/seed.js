@@ -1,6 +1,10 @@
 import { Pool } from 'pg';
 
 async function seed() {
+  process.stdout.write('Starting seeder\n');
+  process.stdout.write('DB_HOST: ' + process.env.DB_HOST + '\n');
+  process.stdout.write('DB_NAME: ' + process.env.DB_NAME + '\n');
+
   const pg = new Pool({
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,

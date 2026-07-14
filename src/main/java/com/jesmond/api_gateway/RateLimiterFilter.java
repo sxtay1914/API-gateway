@@ -28,7 +28,7 @@ public class RateLimiterFilter implements WebFilter {
     String destinationURI = exchange.getRequest().getURI().getPath();
 
     if (exchange.getRequest().getURI().getPath().contains("/actuator")) {
-      exchange.getAttributes().put("routeEntity", gatewayURL);
+      exchange.getAttributes().put("routeDest", gatewayURL);
       return chain.filter(exchange);
     }
     Mono<RouteEntity> queryResponse = routingService.query(destinationURI,
@@ -39,7 +39,7 @@ public class RateLimiterFilter implements WebFilter {
     int segmentSize = 1000;
     int windowSize = 6000;
     return queryResponse.flatMap(entity -> {
-      exchange.getAttributes().put("routeEntity", entity);
+      exchange.getAttributes().put("routeDest", entity.getDest());
       System.out.println("Allow Request Called");
       return rateLimiterService.allowRequest(segmentSize, windowSize, entity.getLimit(), clientId, routeKey)
           .then(chain.filter(exchange));

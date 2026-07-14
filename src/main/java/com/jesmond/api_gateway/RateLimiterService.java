@@ -31,9 +31,7 @@ public class RateLimiterService {
         String.valueOf(curr_seg),
         String.valueOf(segmentSize),
         String.valueOf(windowSize),
-        String.valueOf(limit))
-        .doOnNext(v -> System.out.println("Hiii" + v))
-        .doOnComplete(() -> System.out.println("Nothing here")).next();
+        String.valueOf(limit)).next();
 
     return result.flatMap(r -> {
       System.out.println(r);

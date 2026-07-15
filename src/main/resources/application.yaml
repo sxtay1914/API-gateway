@@ -16,5 +16,13 @@ spring:
           max-idle: 10
           min-idle: 5
           max-wait: 2000ms
+  resilience4j.circuitbreaker:
+    instances:
+      externalService:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 2s # Flags calls exceeding 2 seconds as slow
+        sliding-window-size: 10 # Evaluates the last 10 requests
+        permitted-number-of-calls-in-half-open-state: 10
 
 

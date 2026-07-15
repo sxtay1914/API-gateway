@@ -28,7 +28,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      mock-downstream:
+      envoy:
         condition: service_healthy
       seeder:
         condition: service_completed_successfully
@@ -64,6 +64,21 @@ services:
       test:  ["CMD-SHELL", "nc -z 127.0.0.1 80"]
       interval: 5s
       retries: 5
+  
+  envoy:
+    image: envoyproxy/envoy:v1.33-latest
+    ports:
+      - "10000:10000"
+      - "9901:9901"
+    volumes:
+      - ./envoy/envoy.yml:/etc/envoy/envoy.yml
+    command: ["envoy", "-c", "/etc/envoy/envoy.yml"]
+    healthcheck:
+      test: ["CMD-SHELL", "envoy --version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   seeder:
     environment:
@@ -72,7 +87,7 @@ services:
       DB_NAME: routes
       DB_USER: postgres
       DB_PASSWORD: password
-      DOWNSTREAM_URL: http://mock-downstream:80
+      DOWNSTREAM_URL: http://envoy:10000
     build:
       context: ./seeder
     depends_on:

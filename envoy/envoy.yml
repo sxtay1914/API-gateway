@@ -17,6 +17,7 @@ static_resources:
               typed_config:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                 stat_prefix: nginx_server
+                server_header_transformation: PASS_THROUGH
                 route_config:
                   name: default_route
                   virtual_hosts:
@@ -29,7 +30,7 @@ static_resources:
                             cluster: nginx_server_cluster
                             retry_policy:
                               retry_on: "5xx,connect-failure,refused-stream,reset"
-                              num_retries: 7
+                              num_retries: 3
                               per_try_timeout: 2s
                               retry_back_off:
                                 base_interval: 0.25s

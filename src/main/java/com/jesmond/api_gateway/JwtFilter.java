@@ -42,21 +42,10 @@ public class JwtFilter implements WebFilter {
      */
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
       System.out.println("Check Executed");
-      exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+      exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
       return exchange.getResponse().setComplete();
     }
     String token = authHeader.substring(7);
-
-    try {
-      // Get claims from token
-      SignedJWT jwt = SignedJWT.parse(token);
-      // Get claimset
-      JWTClaimsSet claims = jwt.getJWTClaimsSet();
-      // Pass into exchange attributes
-      exchange.getAttributes().put("clientID", claims.getSubject());
-    } catch (ParseException e) {
-      System.err.println("JWT parse error " + e);
-    }
 
     for (String path : noAuthPaths) {
       if (exchange.getRequest().getPath().value().startsWith(path)) {
@@ -64,13 +53,27 @@ public class JwtFilter implements WebFilter {
       }
     }
 
+    // Verify token first
     try {
       jwtService.verifyToken(token);
       System.out.println("Filter Reached");
-      return chain.filter(exchange);
     } catch (Exception e) {
       System.err.println(e.getMessage());
       exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+      return exchange.getResponse().setComplete();
+    }
+    // Parse the token afterwards
+    try {
+      // Get claims from token
+      SignedJWT jwt = SignedJWT.parse(token);
+      // Get claimset
+      JWTClaimsSet claims = jwt.getJWTClaimsSet();
+      // Pass into exchange attributes
+      exchange.getAttributes().put("clientID", claims.getSubject());
+      return chain.filter(exchange);
+    } catch (ParseException e) {
+      System.err.println("JWT parse error " + e);
+      exchange.getResponse().setStatusCode(HttpStatus.BAD_REQUEST);
       return exchange.getResponse().setComplete();
     }
   }

@@ -1,4 +1,5 @@
 package com.jesmond.api_gateway;
 
-public record RouteId(String path, String method){}
-
+// Schema uses composite key (path, method)
+public record RouteId(String path, String method) {
+}

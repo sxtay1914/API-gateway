@@ -3,6 +3,7 @@ package com.jesmond.api_gateway;
 import java.net.URL;
 import java.util.Collections;
 
+import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,7 @@ import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.PostConstruct;
 
@@ -23,6 +25,7 @@ public class JwtService {
   @Value("${auth_server_url}")
   private String jwksURLString;
   private JWKSource<SecurityContext> keySource;
+  private final Logger logger = LoggerFactory.getLogger(JwtService.class);
 
   @PostConstruct
   public void init() {
@@ -52,7 +55,7 @@ public class JwtService {
       jwtProcessor.process(token, null);
 
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      logger.error("JWT Processor initialization failed. " + e);
       throw new RuntimeException(e);
     }
 

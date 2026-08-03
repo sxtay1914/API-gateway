@@ -15,16 +15,17 @@ with open("private_key.pem", "rb") as key_file:
 @router.get("/issue_jwt_token")
 def issue_jwt_token() -> dict:
     """Issue a JWT token signed with the RSA private key."""
+    # JWTClaimsSet
     payload = {
         "sub": "test_client_id",
         "iat": int(time.time()),
-        # "exp": int(time.time()) + 3600,  # Token expires in 1 hour
+        "exp": int(time.time()) + 3600,  # Token expires in 1 hour
     }
     # Create a JWT token using the payload and sign it with the private key
-    token = jwt.encode(payload, 
-        private_key, 
-        algorithm="RS256",
-        headers={"kid": "my-key-id"}
+    # JWS header
+    token = jwt.encode(
+        payload, private_key, algorithm="RS256", headers={"kid": "my-key-id"}
     )
 
     return {"token": token, "token_type": "Bearer"}
+

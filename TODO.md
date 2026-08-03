@@ -1,45 +1,149 @@
 # TODO
 
-## WebClient Configuration
+## One-Week Finalisation Goal
 
-- [x] Configure connection timeout via `HttpClient`
-- [x] Configure read timeout via `HttpClient`
-- [x] Configure response timeout via `HttpClient`
-- [x] Configure connection pool (max connections, pending acquire queue)
-- [x] Wire `HttpClient` into `WebClient` builder
+Finish a reliable, explainable portfolio version of the API gateway. Prioritise proving the existing request pipeline over adding new infrastructure.
 
-## Dynamic Routing
-- [x] Set up PostgreSQL
-- [x] Configure R2DBC connection on application.yaml, need to add dependencies also
-- [x] Create entity class
-- [x] Create repo interface
-- [x] Create routing service
-- [x] Create RouteConfig (RouterFunction with RequestPredicates.all())
-- [x] Create RouteHandler to intercept requests and forward via WebClient
-- [x] Fix RouteConfig predicate — `contentType(APPLICATION_JSON)` blocks non-JSON requests; gateway should forward all content types
-- [x] `RouteEntity.dest` should be `private`, not `public` — `@Getter` already handles access
-- [x] `ResponseStatusException` in `RouteHandler.onStatus` uses `NOT_FOUND` but should be `BAD_GATEWAY`
+**Definition of done:**
 
-- [x] Debug BAD_GATEWAY error using curl
+- [ ] The Maven test suite passes consistently
+- [ ] JWT, routing, rate-limiting, and downstream failure behaviour are tested
+- [ ] The proxy preserves the essential HTTP request and response data
+- [ ] Docker Compose provides a working end-to-end environment
+- [ ] GitHub Actions runs a successful smoke test
+- [ ] No private keys or real secrets are stored in the repository
+- [ ] Documentation accurately explains the architecture, setup, decisions, and limitations
 
-## Pre-session Prep
-- [x] Read WebClient docs — trace get() → uri() → retrieve() → bodyToMono()
-- [x] Understand Mono vs Flux and what subscribing means
-- [x] Sketch the handler flow on paper before coding
+## Day 1 — Stabilise the Test Harness
 
-## Neovim Setup
-- [x] Set up jdtls (Eclipse JDT Language Server) via nvim-lspconfig for Java auto-import and completion
+- [x] Fix the Testcontainers lifecycle and ensure containers stop after the suite
+- [x] Make WireMock ports dynamic and pass their addresses through test properties/data
+- [x] Make the JWT minting helper use its `sub` argument
+- [ ] Reset WireMock and Redis state between tests where necessary
+- [ ] Prevent WireMock configuration from affecting unrelated context tests
+- [ ] Remove duplicate or incorrectly scoped test dependencies
+- [ ] Get the existing JWT happy-path integration test passing
+- [ ] Explain the lifecycle of PostgreSQL, Redis, the JWKS server, and the downstream mock
 
-## JWT Authentication Filter
-- [ ] Add `jjwt` dependency (parse/validate JWT)
-- [ ] Obtain public key for signature verification
-- [ ] Implement `WebFilter` — extract `Authorization: Bearer <token>` header
-- [ ] Reject with 401 if header missing or malformed
-- [ ] Verify signature using public key — reject with 401 if invalid
-- [ ] Forward request to `RouteHandler` if valid
+## Day 2 — Authentication Behaviour
 
-## Up Next
+- [ ] Decide and document the contract for missing and malformed credentials (`401` versus `400`)
+- [ ] Test an expired JWT and verify the downstream is not called
+- [ ] Test a token signed by an untrusted key
+- [ ] Test a malformed token
+- [ ] Test a missing `Authorization` header
+- [ ] Test a malformed Bearer header
+- [ ] Test actuator and public-path bypass behaviour
+- [ ] Validate the expected issuer and audience, or document why they are currently deferred
+- [ ] Explain the difference between parsing a JWT and trusting its claims
 
-- [ ] Redis-based rate limiting
-- [ ] Circuit breaking with Resilience4j
-- [ ] Observability: Kafka, Prometheus, Grafana
+## Day 3 — Routing and Proxy Correctness
+
+- [ ] Test an existing path with the correct HTTP method
+- [ ] Test an unknown path returning `404`
+- [ ] Test an existing path with the wrong HTTP method
+- [ ] Preserve query parameters when forwarding
+- [ ] Preserve relevant request headers
+- [ ] Forward request bodies for methods such as POST and PUT
+- [ ] Preserve downstream response status, headers, content type, and body
+- [ ] Avoid unnecessarily buffering the complete downstream response
+- [ ] Test that a downstream error produces the intended gateway response
+- [ ] Explain what makes a proxy transparent
+
+## Day 4 — Rate Limiting and Failure Behaviour
+
+- [ ] Test that requests within the route limit succeed
+- [ ] Test that the next request returns `429`
+- [ ] Verify rejected requests never reach the downstream service
+- [ ] Test isolation between different clients
+- [ ] Test isolation between different routes
+- [ ] Add expiry for inactive Redis rate-limit keys
+- [ ] Review the Lua window-boundary behaviour
+- [ ] Decide and document whether Redis failure should fail open or fail closed
+- [ ] Add rate-limit response headers if time permits
+- [ ] Explain why the Lua operation is atomic
+
+## Day 5 — Build, Security, and Configuration Cleanup
+
+- [ ] Align the documented and configured Java version
+- [ ] Align the documented and configured Spring Boot version
+- [ ] Remove the duplicate PostgreSQL dependency
+- [ ] Remove multiple SLF4J provider bindings and verify the intended logger is active
+- [ ] Review whether both imperative and reactive Redis starters are required
+- [ ] Move WireMock/JWT test libraries into the appropriate test scope
+- [ ] Replace hardcoded service settings with environment-driven configuration
+- [ ] Restrict exposed actuator endpoints
+- [ ] Remove committed private keys and rotate/recreate development keys
+- [ ] Validate route destinations to reduce SSRF and routing-loop risk
+
+## Day 6 — Docker, CI, and Performance Smoke Test
+
+- [ ] Ensure the Compose stack includes a working authentication/JWKS service
+- [ ] Ensure all health checks represent real readiness
+- [ ] Remove duplicate seeder execution
+- [ ] Align k6 and GitHub Actions environment-variable names
+- [ ] Align generated report paths with uploaded artifact paths
+- [ ] Run a successful k6 smoke scenario before attempting a stress scenario
+- [ ] Confirm k6 checks validate successful gateway behaviour
+- [ ] Save a fresh report and remove or label stale failed results
+- [ ] Run the complete workflow from a clean checkout if possible
+
+## Day 7 — Documentation and Interview Readiness
+
+- [ ] Update `PROJECT_CONTEXT.md` to reflect completed features and the actual stack
+- [ ] Replace or expand the generated `HELP.md` with useful setup instructions
+- [ ] Document the request lifecycle from client to downstream service
+- [ ] Add an architecture diagram
+- [ ] Document the route-table schema and rate-limit algorithm
+- [ ] Document why resilience is handled by Envoy rather than Resilience4j, or revise that decision
+- [ ] Document how to start the stack, obtain a token, make a request, and run tests
+- [ ] Document known limitations instead of hiding unfinished production concerns
+- [ ] Practise explaining each filter and service without looking at the code
+- [ ] Practise rebuilding the request flow from memory
+
+## Completed Foundation
+
+### WebClient Configuration
+
+- [x] Configure connection timeout
+- [x] Configure read and write timeouts
+- [x] Configure response timeout
+- [x] Configure the connection pool
+- [x] Wire the Reactor Netty client into `WebClient`
+
+### Dynamic Routing
+
+- [x] Set up PostgreSQL and R2DBC
+- [x] Create the route entity and composite route identifier
+- [x] Create the reactive repository and routing service
+- [x] Route all request methods through a functional WebFlux handler
+- [x] Forward requests to a database-selected destination
+
+### Authentication and Request Pipeline
+
+- [x] Implement a correlation-ID filter
+- [x] Implement Bearer-token extraction
+- [x] Verify RS256 tokens through a remote JWKS endpoint
+- [x] Pass the verified client identity through the exchange
+- [x] Create a local FastAPI JWT/JWKS development server
+
+### Rate Limiting and Infrastructure
+
+- [x] Implement Redis-backed rate limiting with a Lua script
+- [x] Configure Prometheus metrics exposure
+- [x] Provision a Grafana Prometheus datasource
+- [x] Add Envoy retries, circuit breaking, and outlier detection
+- [x] Add PostgreSQL, Redis, Envoy, nginx, monitoring, and seeding services to Docker Compose
+- [x] Create k6 smoke/stress scenarios and an HTML summary generator
+- [x] Create an initial GitHub Actions performance-test workflow
+
+## Deferred Until After the One-Week Finish
+
+- [ ] Kafka event streaming
+- [ ] Additional cloud infrastructure
+- [ ] Advanced route caching and invalidation
+- [ ] High-availability deployment
+- [ ] Full production TLS and secret-management design
+- [ ] Additional dashboards beyond the metrics needed to demonstrate the gateway
+
+These are valuable extensions, but they should not delay a correct, tested, and explainable portfolio release.

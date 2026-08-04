@@ -56,7 +56,8 @@ public class IntegrationTest {
       .withExposedPorts(6379);
   static final WireMockServer authMockServer = new WireMockServer(Options.DYNAMIC_PORT);
   static final WireMockServer downStreamServer = new WireMockServer(Options.DYNAMIC_PORT);
-  static final RSAKey signingKey;
+  static final RSAKey trustedSigningKey;
+  static final RSAKey untrustedSigningKey;
   @Autowired
   private DatabaseClient databaseClient;
   @Autowired
@@ -64,7 +65,7 @@ public class IntegrationTest {
   @Autowired
   private ReactiveRedisTemplate<String, String> redisTemplate;
 
-  private String mint(String sub, Duration ttl) {
+  private String mint(String sub, Duration ttl, RSAKey signingKey, String audience, String issuer) {
     // generate JWT token with JWT header and JWT claimsets
     try {
       Instant now = Instant.now();
@@ -76,6 +77,50 @@ public class IntegrationTest {
               .subject(sub)
               .issueTime(Date.from(now))
               .expirationTime(Date.from(now.plus(ttl)))
+              .issuer(issuer)
+              .audience(audience)
+              .build());
+      jwt.sign(new RSASSASigner(signingKey));
+      return jwt.serialize();
+    } catch (JOSEException e) {
+      throw new IllegalStateException("JWT token failed to generate " + e);
+    }
+  }
+
+  private String noAudienceMint(String sub, Duration ttl, RSAKey signingKey, String issuer) {
+    // generate JWT token with JWT header and JWT claimsets
+    try {
+      Instant now = Instant.now();
+      SignedJWT jwt = new SignedJWT(
+          new JWSHeader.Builder(JWSAlgorithm.RS256)
+              .keyID(signingKey.getKeyID())
+              .build(),
+          new JWTClaimsSet.Builder()
+              .subject(sub)
+              .issueTime(Date.from(now))
+              .expirationTime(Date.from(now.plus(ttl)))
+              .issuer(issuer)
+              .build());
+      jwt.sign(new RSASSASigner(signingKey));
+      return jwt.serialize();
+    } catch (JOSEException e) {
+      throw new IllegalStateException("JWT token failed to generate " + e);
+    }
+  }
+
+  private String noIssuerMint(String sub, Duration ttl, RSAKey signingKey, String audience) {
+    // generate JWT token with JWT header and JWT claimsets
+    try {
+      Instant now = Instant.now();
+      SignedJWT jwt = new SignedJWT(
+          new JWSHeader.Builder(JWSAlgorithm.RS256)
+              .keyID(signingKey.getKeyID())
+              .build(),
+          new JWTClaimsSet.Builder()
+              .subject(sub)
+              .issueTime(Date.from(now))
+              .expirationTime(Date.from(now.plus(ttl)))
+              .audience(audience)
               .build());
       jwt.sign(new RSASSASigner(signingKey));
       return jwt.serialize();
@@ -87,15 +132,22 @@ public class IntegrationTest {
   static {
     authMockServer.start();
     try {
-      // create signingKey
-      signingKey = new RSAKeyGenerator(2048).keyID("my-key-id").algorithm(JWSAlgorithm.RS256).keyUse(KeyUse.SIGNATURE)
+      // create signingKeys
+      trustedSigningKey = new RSAKeyGenerator(2048).keyID("my-key-id").algorithm(JWSAlgorithm.RS256)
+          .keyUse(KeyUse.SIGNATURE)
           .generate();
+
+      untrustedSigningKey = new RSAKeyGenerator(2048).keyID("my-key-id").algorithm(JWSAlgorithm.RS256)
+          .keyUse(KeyUse.SIGNATURE)
+          .generate();
+
     } catch (JOSEException e) {
       throw new AssertionError("Failed to generate signing key" + e);
     }
     // create stub point for well-known/jwks.json
     authMockServer
-        .stubFor(get("/.well-known/jwks.json").willReturn(okJson(new JWKSet(signingKey.toPublicJWK()).toString())));
+        .stubFor(
+            get("/.well-known/jwks.json").willReturn(okJson(new JWKSet(trustedSigningKey.toPublicJWK()).toString())));
 
     downStreamServer.start();
   }
@@ -126,11 +178,6 @@ public class IntegrationTest {
 
     StepVerifier.create(flushMono)
         .verifyComplete();
-
-    this.webTestClient = webTestClient.mutate()
-        .responseTimeout(Duration.ofSeconds(30))
-        .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5)))
-        .build();
   }
 
   @DynamicPropertySource
@@ -145,10 +192,10 @@ public class IntegrationTest {
   }
 
   @Test
-  void validJwtHappyPath() {
+  void validJwt() {
     // Insert downstreamServer record into sql
     var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
-        .bind("path", "/jwtHappy")
+        .bind("path", "/validJwt")
         .bind("method", "GET")
         .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
         .bind("rateLimit", 999)
@@ -158,17 +205,356 @@ public class IntegrationTest {
         .verifyComplete();
 
     // create stub for downstream server
-    downStreamServer.stubFor(get("/jwtHappy").willReturn(aResponse().withStatus(200)));
+    downStreamServer.stubFor(get("/validJwt").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
 
     // Hit api gateway endpoint
     // Assert 200 ok response received
     webTestClient.get()
-        .uri("/jwtHappy")
+        .uri("/validJwt")
         .exchange()
         .expectStatus()
         .isOk();
 
     downStreamServer
-        .verify(exactly(1), getRequestedFor(urlEqualTo("/jwtHappy")));
+        .verify(exactly(1), getRequestedFor(urlEqualTo("/validJwt")));
+  }
+
+  @Test
+  void wrongIssuerInClaims() {
+    // Insert downstreamServer record into sql
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/wrongIssuer")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    // create stub for downstream server
+    downStreamServer.stubFor(get("/wrongIssuer").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "wrong-issuer"))
+        .build();
+
+    // Hit api gateway endpoint
+    webTestClient.get()
+        .uri("/wrongIssuer")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/wrongIssuer")));
+  }
+
+  @Test
+  void wrongAudienceInClaims() {
+    // Insert downstreamServer record into sql
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/wrongAudience")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    // create stub for downstream server
+    downStreamServer.stubFor(get("/wrongAudience").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "wrong-audience",
+                "http://localhost:8000"))
+        .build();
+
+    // Hit api gateway endpoint
+    webTestClient.get()
+        .uri("/wrongAudience")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/wrongAudience")));
+  }
+
+  @Test
+  void noAudienceClaim() {
+    // Insert downstreamServer record into sql
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/noAudienceClaim")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    // create stub for downstream server
+    downStreamServer.stubFor(get("/noAudienceClaim").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + noAudienceMint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey,
+                "http://localhost:8000"))
+        .build();
+
+    // Hit api gateway endpoint
+    webTestClient.get()
+        .uri("/noAudienceClaim")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/noAudienceClaim")));
+  }
+
+  @Test
+  void noIssuerClaim() {
+    // Insert downstreamServer record into sql
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/noIssueClaim")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    // create stub for downstream server
+    downStreamServer.stubFor(get("/noIssueClaim").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + noIssuerMint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway"))
+        .build();
+
+    // Hit api gateway endpoint
+    webTestClient.get()
+        .uri("/noIssueClaim")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/noIssueClaim")));
+  }
+
+  @Test
+  void expiredJwt() {
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/expiredJwt")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/expiredJwt").willReturn(aResponse().withStatus(200)));
+
+    // Build webTestClient with expired JWT
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(-1), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/expiredJwt")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/expiredJwt")));
+  }
+
+  @Test
+  void tokenSignedByUntrustedKey() {
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/untrustedKey")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/untrustedKey").willReturn(aResponse().withStatus(200)));
+    // Build webTestClient with expired JWT
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), untrustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/untrustedKey")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer
+        .verify(exactly(0), getRequestedFor(urlEqualTo("/untrustedKey")));
+  }
+
+  @Test
+  void malformedToken() {
+    String malformedJWT = "not-a-jwt";
+
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/malformedToken")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/malformedToken").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + malformedJWT)
+        .build();
+
+    webTestClient.get()
+        .uri("/malformedToken")
+        .exchange()
+        .expectStatus()
+        .isUnauthorized();
+
+    downStreamServer.verify(exactly(0), getRequestedFor(urlEqualTo("/malformedToken")));
+  }
+
+  @Test
+  void missingAuthorizationHeader() {
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/missingAuthorizationHeader")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/missingAuthorizationHeader").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .build();
+
+    webTestClient.get()
+        .uri("/missingAuthorizationHeader")
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+
+    downStreamServer.verify(exactly(0), getRequestedFor(urlEqualTo("/missingAuthorizationHeader")));
+  }
+
+  @Test
+  void malformedBearerHeader() {
+    var insertMono = databaseClient.sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/malformedBearerHeader")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/malformedBearerHeader").willReturn(aResponse().withStatus(200)));
+
+    // No 'Bearer' in header
+    this.webTestClient = webTestClient.mutate()
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .responseTimeout(Duration.ofSeconds(30))
+        .build();
+
+    webTestClient.get()
+        .uri("/malformedBearerHeader")
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+
+    downStreamServer.verify(exactly(0), getRequestedFor(urlEqualTo("/malformedBearerHeader")));
+  }
+
+  @Test
+  void publicPathBypass() {
+    var insertActuatorMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/actuator")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertActuatorMono)
+        .verifyComplete();
+
+    var insertTestMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/test")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertTestMono)
+        .verifyComplete();
+
+    // No auth header needed
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .build();
+
+    webTestClient.get()
+        .uri("/actuator")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    // 'Test' public path
+    downStreamServer.stubFor(get("/test").willReturn(aResponse().withStatus(200)));
+    webTestClient.get()
+        .uri("/test")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1), getRequestedFor(urlEqualTo("/test")));
   }
 }

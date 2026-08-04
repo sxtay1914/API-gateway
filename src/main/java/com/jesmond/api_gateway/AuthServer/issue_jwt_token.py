@@ -20,6 +20,8 @@ def issue_jwt_token() -> dict:
         "sub": "test_client_id",
         "iat": int(time.time()),
         "exp": int(time.time()) + 3600,  # Token expires in 1 hour
+        "iss": "http://localhost:8000",
+        "aud": "api-gateway",
     }
     # Create a JWT token using the payload and sign it with the private key
     # JWS header
@@ -28,4 +30,3 @@ def issue_jwt_token() -> dict:
     )
 
     return {"token": token, "token_type": "Bearer"}
-

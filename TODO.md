@@ -19,11 +19,11 @@ Finish a reliable, explainable portfolio version of the API gateway. Prioritise 
 - [x] Fix the Testcontainers lifecycle and ensure containers stop after the suite
 - [x] Make WireMock ports dynamic and pass their addresses through test properties/data
 - [x] Make the JWT minting helper use its `sub` argument
-- [ ] Reset WireMock and Redis state between tests where necessary
-- [ ] Prevent WireMock configuration from affecting unrelated context tests
-- [ ] Remove duplicate or incorrectly scoped test dependencies
-- [ ] Get the existing JWT happy-path integration test passing
-- [ ] Explain the lifecycle of PostgreSQL, Redis, the JWKS server, and the downstream mock
+- [x] Reset WireMock and Redis state between tests where necessary
+- [x] Prevent WireMock configuration from affecting unrelated context tests
+- [x] Remove duplicate or incorrectly scoped test dependencies
+- [x] Get the existing JWT happy-path integration test passing
+- [x] Explain the lifecycle of PostgreSQL, Redis, the JWKS server, and the downstream mock
 
 ## Day 2 — Authentication Behaviour
 

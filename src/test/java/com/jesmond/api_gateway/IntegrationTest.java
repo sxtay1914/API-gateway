@@ -39,6 +39,7 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Set;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
@@ -556,5 +557,177 @@ public class IntegrationTest {
         .isOk();
 
     downStreamServer.verify(exactly(1), getRequestedFor(urlEqualTo("/test")));
+  }
+
+  @Test
+  void existingPathWithValidMethod() {
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/existingPathWithValidMethod")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    downStreamServer.stubFor(get("/existingPathWithValidMethod").willReturn(aResponse().withStatus(200)));
+    webTestClient.get()
+        .uri("/existingPathWithValidMethod")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1), getRequestedFor(urlEqualTo("/existingPathWithValidMethod")));
+  }
+
+  @Test
+  void unknownPath() {
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    downStreamServer.stubFor(get("/unknownPath").willReturn(aResponse().withStatus(200)));
+    webTestClient.get()
+        .uri("/unknownPath")
+        .exchange()
+        .expectStatus()
+        .isNotFound();
+
+    downStreamServer.verify(exactly(0), getRequestedFor(urlEqualTo("/unknownPath")));
+  }
+
+  @Test
+  void existingPathWithInvalidMethod() {
+    var insertMono1 = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/existingPathWithInvalidMethod")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono1)
+        .verifyComplete();
+
+    var insertMono2 = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/existingPathWithInvalidMethod")
+        .bind("method", "PUT")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono2)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get("/existingPathWithInvalidMethod").willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.post()
+        .uri("/existingPathWithInvalidMethod")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(405)
+        .expectHeader()
+        .valueEquals("Allow", "GET, PUT");
+
+    downStreamServer.verify(exactly(0), postRequestedFor(urlEqualTo("/existingPathWithInvalidMethod")));
+  }
+
+  @Test
+  void preservesQueryParams() {
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/preservesQueryParams")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/preservesQueryParams")).withQueryParam("name", equalTo("jesmond"))
+        .withQueryParam("tag", equalTo("spring")).willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.get()
+        .uri("/preservesQueryParams?name=jesmond&tag=spring")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/preservesQueryParams"))
+            .withQueryParam("name", equalTo("jesmond"))
+            .withQueryParam("tag", equalTo("spring")));
+  }
+
+  @Test
+  void filterHeader() {
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/filterHeader")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/filterHeader")).willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .defaultHeader(HttpHeaders.CONNECTION, "keep-alive")
+        .defaultHeader("Custom-Header", "custom header")
+        .build();
+
+    // Should return allow header
+    webTestClient.get()
+        .uri("/filterHeader")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/filterHeader")));
+
+    downStreamServer.verify(getRequestedFor(urlEqualTo("/filterHeader"))
+        .withHeader("Host", equalTo("localhost:" + downStreamServer.port()))
+        .withHeader("X-Client-Id", equalTo("Springboot Test User"))
+        .withHeader("Custom-Header", equalTo("custom header"))
+        .withoutHeader("Authorization")
+        .withoutHeader("Connection"));
   }
 }

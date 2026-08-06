@@ -27,22 +27,22 @@ Finish a reliable, explainable portfolio version of the API gateway. Prioritise 
 
 ## Day 2 — Authentication Behaviour
 
-- [ ] Decide and document the contract for missing and malformed credentials (`401` versus `400`)
-- [ ] Test an expired JWT and verify the downstream is not called
-- [ ] Test a token signed by an untrusted key
-- [ ] Test a malformed token
-- [ ] Test a missing `Authorization` header
-- [ ] Test a malformed Bearer header
-- [ ] Test actuator and public-path bypass behaviour
-- [ ] Validate the expected issuer and audience, or document why they are currently deferred
-- [ ] Explain the difference between parsing a JWT and trusting its claims
+- [x] Decide and document the contract for missing and malformed credentials (`401` versus `400`)
+- [x] Test an expired JWT and verify the downstream is not called
+- [x] Test a token signed by an untrusted key
+- [x] Test a malformed token
+- [x] Test a missing `Authorization` header
+- [x] Test a malformed Bearer header
+- [x] Test actuator and public-path bypass behaviour
+- [x] Validate the expected issuer and audience, or document why they are currently deferred
+- [x] Explain the difference between parsing a JWT and trusting its claims
 
 ## Day 3 — Routing and Proxy Correctness
 
-- [ ] Test an existing path with the correct HTTP method
-- [ ] Test an unknown path returning `404`
-- [ ] Test an existing path with the wrong HTTP method
-- [ ] Preserve query parameters when forwarding
+- [x] Test an existing path with the correct HTTP method
+- [x] Test an unknown path returning `404`
+- [x] Test an existing path with the wrong HTTP method (Should return 405)
+- [x] Preserve query parameters when forwarding
 - [ ] Preserve relevant request headers
 - [ ] Forward request bodies for methods such as POST and PUT
 - [ ] Preserve downstream response status, headers, content type, and body

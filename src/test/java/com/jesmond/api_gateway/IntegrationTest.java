@@ -1,6 +1,7 @@
 package com.jesmond.api_gateway;
 
 import org.junit.jupiter.api.Test;
+import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import com.github.tomakehurst.wiremock.core.Options;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -28,14 +30,18 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.sun.jndi.url.dns.dnsURLContextFactory;
 
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.r2dbc.core.DatabaseClient;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -729,5 +735,88 @@ public class IntegrationTest {
         .withHeader("Custom-Header", equalTo("custom header"))
         .withoutHeader("Authorization")
         .withoutHeader("Connection"));
+  }
+
+  @Test
+  void preservePayload() {
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/preservePayload")
+        .bind("method", "POST")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(post(urlPathEqualTo("/preservePayload")).willReturn(aResponse().withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.post()
+        .uri("/preservePayload")
+        .body(Mono.just("payload".getBytes(StandardCharsets.UTF_8)), byte[].class)
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1),
+        postRequestedFor(urlPathEqualTo("/preservePayload")));
+
+    downStreamServer.verify(postRequestedFor(urlEqualTo("/preservePayload"))
+        .withRequestBody(equalTo("payload")));
+
+  }
+
+  @Test
+  void preserveDownstreamResponse() {
+    // Response status, headers, content type and body should be retained
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/preserveDownstreamResponse")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/preserveDownstreamResponse")).willReturn(
+        aResponse()
+            .withHeader("Custom-Header", "custom header")
+            .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+            .withBody("{\"payload\": \"payload\"}")
+            .withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.get()
+        .uri("/preserveDownstreamResponse")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectHeader()
+        .valueEquals("Custom-Header", "custom header")
+        .expectHeader()
+        .valueEquals("Content-Type", "application/json")
+        .expectBody(byte[].class)
+        .isEqualTo("payload".getBytes(StandardCharsets.UTF_8));
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/preserveDownstreamResponse")));
   }
 }

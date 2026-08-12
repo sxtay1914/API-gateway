@@ -43,8 +43,8 @@ Finish a reliable, explainable portfolio version of the API gateway. Prioritise 
 - [x] Test an unknown path returning `404`
 - [x] Test an existing path with the wrong HTTP method (Should return 405)
 - [x] Preserve query parameters when forwarding
-- [ ] Preserve relevant request headers
-- [ ] Forward request bodies for methods such as POST and PUT
+- [x] Preserve relevant request headers
+- [x] Forward request bodies for methods such as POST and PUT
 - [ ] Preserve downstream response status, headers, content type, and body
 - [ ] Avoid unnecessarily buffering the complete downstream response
 - [ ] Test that a downstream error produces the intended gateway response

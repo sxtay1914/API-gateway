@@ -4,7 +4,7 @@ import { check } from 'k6';
 import { handleSummary } from "./summary-generator.js";
 
 const AUTH_TOKEN = __ENV.AUTH_TOKEN;
-const SCENARIO = __ENV.SCENARIOS || 'smoke';
+const SCENARIO = __ENV.SCENARIOS || 'stress';
 const ENVIRONMENT_URL = __ENV.ENVIRONMENT_URL || 'http://localhost:8080';
 
 export let options = {

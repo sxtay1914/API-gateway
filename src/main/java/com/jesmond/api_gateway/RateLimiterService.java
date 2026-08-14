@@ -3,6 +3,7 @@ package com.jesmond.api_gateway;
 import java.util.Collections;
 import java.util.List;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.http.HttpStatus;
@@ -37,13 +38,21 @@ public class RateLimiterService {
         String.valueOf(windowSize),
         String.valueOf(limit)).next();
 
-    return result.flatMap(r -> {
-      logger.info("[{}] Allowed request " + r, correlationId);
-      if (r == 0) {
-        logger.warn("[{}] Rate limit hit", correlationId);
-        return Mono.error(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS));
-      }
-      return Mono.empty();
-    });
+    return result
+        .switchIfEmpty(
+            Mono.error(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Rate Limiter Service Unavailable")))
+        .onErrorMap(
+            DataAccessException.class,
+            error -> {
+              return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Rate limiter unavailable", error);
+            })
+        .flatMap(r -> {
+          logger.info("[{}] Allowed request " + r, correlationId);
+          if (r == 0) {
+            logger.warn("[{}] Rate limit hit", correlationId);
+            return Mono.error(new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS));
+          }
+          return Mono.empty();
+        });
   }
 }

@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 public class RouteHandler {
   private WebClient webClient;
   private static final Logger logger = LoggerFactory.getLogger(RouteHandler.class);
-  private HttpHeaders outgoingHeaders;
 
   public RouteHandler(WebClient webClient, WebClientConfig webClientConfig) {
     this.webClient = webClient;
@@ -56,9 +55,9 @@ public class RouteHandler {
     String clientId = request.exchange().getAttribute("clientID");
 
     HttpHeaders reqHeaders = request.exchange().getRequest().getHeaders();
-
+    HttpHeaders outgoingHeaders;
     // cannot be stored as beans because this will leak headers between users
-    this.outgoingHeaders = new HttpHeaders();
+    outgoingHeaders = new HttpHeaders();
 
     outgoingHeaders.addAll(reqHeaders);
     headersToRemove.forEach(h -> {
@@ -78,17 +77,16 @@ public class RouteHandler {
           HttpStatusCode statusCode = downstreamResponse.statusCode();
           HttpHeaders headers = downstreamResponse.headers().asHttpHeaders();
 
+          // HttpHeaders are immutable, thus need to create a new HttpHeaders
           HttpHeaders gatewayHeaders = new HttpHeaders();
           gatewayHeaders.addAll(headers);
           System.out.println(downstreamResponse.headers().contentType());
           // Remove connection headers from downstream server response
           headersToRemove.forEach(header -> gatewayHeaders.remove(header));
           var responseBuilder = ServerResponse.status(statusCode).headers(header -> header.addAll(gatewayHeaders));
-
-          if (downstreamResponse.headers().contentType().isPresent()) {
-            responseBuilder.contentType(downstreamResponse.headers().contentType().get());
-          }
-          return responseBuilder.body(downstreamResponse.bodyToMono(byte[].class), byte[].class);
+          return downstreamResponse.bodyToMono(byte[].class)
+              .defaultIfEmpty(new byte[0])
+              .flatMap(responseBuilder::bodyValue);
         })
         .onErrorResume(err -> {
           if (err instanceof ConnectException) {

@@ -19,6 +19,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.Options;
+import com.github.tomakehurst.wiremock.http.Fault;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -30,7 +31,6 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import com.sun.jndi.url.dns.dnsURLContextFactory;
 
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -46,6 +46,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Set;
+
+import javax.print.attribute.standard.Media;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
@@ -791,10 +793,10 @@ public class IntegrationTest {
 
     downStreamServer.stubFor(get(urlPathEqualTo("/preserveDownstreamResponse")).willReturn(
         aResponse()
-            .withHeader("Custom-Header", "custom header")
+            .withStatus(200)
+            .withHeader("Custom-Header", "custom")
             .withHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-            .withBody("{\"payload\": \"payload\"}")
-            .withStatus(200)));
+            .withBody("{\"status\": \"success\"}")));
 
     this.webTestClient = webTestClient.mutate()
         .responseTimeout(Duration.ofSeconds(30))
@@ -810,13 +812,235 @@ public class IntegrationTest {
         .expectStatus()
         .isOk()
         .expectHeader()
-        .valueEquals("Custom-Header", "custom header")
+        .contentType(MediaType.APPLICATION_JSON)
         .expectHeader()
-        .valueEquals("Content-Type", "application/json")
+        .valueEquals("Custom-Header", "custom")
         .expectBody(byte[].class)
-        .isEqualTo("payload".getBytes(StandardCharsets.UTF_8));
+        .isEqualTo("{\"status\": \"success\"}".getBytes(StandardCharsets.UTF_8));
 
     downStreamServer.verify(exactly(1),
         getRequestedFor(urlPathEqualTo("/preserveDownstreamResponse")));
+  }
+
+  @Test
+  void preserveDownstreamServerStatus() {
+    // Response status, headers, content type and body should be retained
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/preserveDownstreamServerStatus")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/preserveDownstreamServerStatus")).willReturn(
+        aResponse()
+            .withStatus(400)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.get()
+        .uri("/preserveDownstreamServerStatus")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(400);
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/preserveDownstreamServerStatus")));
+  }
+
+  @Test
+  void preserveDownstreamServerFault() {
+    // Response status, headers, content type and body should be retained
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/preserveDownstreamServerFault")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 999)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/preserveDownstreamServerFault")).willReturn(
+        aResponse()
+            .withFault(Fault.CONNECTION_RESET_BY_PEER)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    // Should return allow header
+    webTestClient.get()
+        .uri("/preserveDownstreamServerFault")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(500);
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/preserveDownstreamServerFault")));
+  }
+
+  @Test
+  void correctRateLimitBehaviour() {
+    // Response status, headers, content type and body should be retained
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/correctRateLimitBehaviour")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 1)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/correctRateLimitBehaviour")).willReturn(
+        aResponse()
+            .withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/correctRateLimitBehaviour")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    // should be rate-limited on second request
+    webTestClient.get()
+        .uri("/correctRateLimitBehaviour")
+        .exchange()
+        .expectStatus()
+        .isEqualTo(429);
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/correctRateLimitBehaviour")));
+  }
+
+  @Test
+  void isolationBetweenClient() {
+    // Response status, headers, content type and body should be retained
+    var insertMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/isolationBetweenClient")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 1)
+        .then();
+
+    StepVerifier.create(insertMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/isolationBetweenClient")).willReturn(
+        aResponse()
+            .withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User 1", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/isolationBetweenClient")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    // Second user, should not be ratelimited
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User 2", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/isolationBetweenClient")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(2),
+        getRequestedFor(urlPathEqualTo("/isolationBetweenClient")));
+  }
+
+  @Test
+  void isolationBetweenPath() {
+    // Response status, headers, content type and body should be retained
+    var firstMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/firstPath")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 1)
+        .then();
+
+    StepVerifier.create(firstMono)
+        .verifyComplete();
+
+    var secondMono = databaseClient
+        .sql("INSERT INTO routes VALUES(:path, :method, :downstreamServerURL, :rateLimit)")
+        .bind("path", "/secondPath")
+        .bind("method", "GET")
+        .bind("downstreamServerURL", "http://localhost:" + Integer.toString(downStreamServer.port()))
+        .bind("rateLimit", 1)
+        .then();
+
+    StepVerifier.create(secondMono)
+        .verifyComplete();
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/firstPath")).willReturn(
+        aResponse()
+            .withStatus(200)));
+
+    downStreamServer.stubFor(get(urlPathEqualTo("/secondPath")).willReturn(
+        aResponse()
+            .withStatus(200)));
+
+    this.webTestClient = webTestClient.mutate()
+        .responseTimeout(Duration.ofSeconds(30))
+        .defaultHeader(HttpHeaders.AUTHORIZATION,
+            "Bearer " + mint("Springboot Test User", Duration.ofMinutes(5), trustedSigningKey, "api-gateway",
+                "http://localhost:8000"))
+        .build();
+
+    webTestClient.get()
+        .uri("/firstPath")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    webTestClient.get()
+        .uri("/secondPath")
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/firstPath")));
+
+    downStreamServer.verify(exactly(1),
+        getRequestedFor(urlPathEqualTo("/secondPath")));
   }
 }

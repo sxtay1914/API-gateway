@@ -4,7 +4,7 @@ import { check } from 'k6';
 import { handleSummary } from "./summary-generator.js";
 
 const AUTH_TOKEN = __ENV.AUTH_TOKEN;
-const SCENARIO = __ENV.SCENARIOS || 'stress';
+const SCENARIO = __ENV.SCENARIOS || 'smoke';
 const ENVIRONMENT_URL = __ENV.ENVIRONMENT_URL || 'http://localhost:8080';
 
 export let options = {
@@ -17,7 +17,6 @@ export let options = {
 export default function () {
   const url = ENVIRONMENT_URL + '/test-nginx-server';
 
-  console.log("URL ", url)
   const params = {
     headers: {
       'Authorization': `Bearer ${AUTH_TOKEN}`,

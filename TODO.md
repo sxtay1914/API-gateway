@@ -45,23 +45,23 @@ Finish a reliable, explainable portfolio version of the API gateway. Prioritise 
 - [x] Preserve query parameters when forwarding
 - [x] Preserve relevant request headers
 - [x] Forward request bodies for methods such as POST and PUT
-- [ ] Preserve downstream response status, headers, content type, and body
-- [ ] Avoid unnecessarily buffering the complete downstream response
-- [ ] Test that a downstream error produces the intended gateway response
-- [ ] Explain what makes a proxy transparent
+- [x] Preserve downstream response status, headers, content type, and body
+- [ ] Avoid unnecessarily buffering the complete downstream response (Deferred)
+- [x] Test that a downstream error produces the intended gateway response
+- [x] Explain what makes a proxy transparent
 
 ## Day 4 — Rate Limiting and Failure Behaviour
 
-- [ ] Test that requests within the route limit succeed
-- [ ] Test that the next request returns `429`
-- [ ] Verify rejected requests never reach the downstream service
-- [ ] Test isolation between different clients
-- [ ] Test isolation between different routes
-- [ ] Add expiry for inactive Redis rate-limit keys
-- [ ] Review the Lua window-boundary behaviour
-- [ ] Decide and document whether Redis failure should fail open or fail closed
-- [ ] Add rate-limit response headers if time permits
-- [ ] Explain why the Lua operation is atomic
+- [x] Test that requests within the route limit succeed
+- [x] Test that the next request returns `429`
+- [x] Verify rejected requests never reach the downstream service
+- [x] Test isolation between different clients
+- [x] Test isolation between different routes
+- [x] Add expiry for inactive Redis rate-limit keys
+- [x] Review the Lua window-boundary behaviour
+- [x] Decide and document whether Redis failure should fail open or fail closed
+- [x] Add rate-limit response headers if time permits
+- [x] Explain why the Lua operation is atomic
 
 ## Day 5 — Build, Security, and Configuration Cleanup
 
